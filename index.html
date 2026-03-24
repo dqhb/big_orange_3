@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>big orange 3</title>
+    <style>
+        body { margin: 0; background: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        #game-container { display: flex; gap: 20px; align-items: flex-start; }
+        #board { display: grid; grid-template-columns: repeat(8, 60px); grid-template-rows: repeat(8, 60px); border: 5px solid #334155; user-select: none; }
+        .sq { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; }
+        .sq.light { background: #f1f5f9; }
+        .sq.dark { background: #94a3b8; }
+        .sq.selected { background: #fde047 !important; }
+        .sq.valid-move { background: #86efac !important; }
+        .sq.last-move { border: 2px solid #fb923c; }
+
+        .piece { font-size: 40px; z-index: 10; transition: transform 0.2s; position: relative; }
+        .hp-bar { position: absolute; bottom: 2px; left: 5px; width: 50px; height: 6px; background: #450a0a; border: 1px solid black; z-index: 20; }
+        .hp-fill { height: 100%; background: #22c55e; transition: width 0.3s; }
+        
+        #ui { width: 250px; background: #1e293b; padding: 20px; border-radius: 10px; border: 2px solid #fb923c; }
+        .turn-indicator { font-size: 1.5rem; font-weight: bold; margin-bottom: 10px; color: #fb923c; }
+        .log { height: 200px; overflow-y: auto; font-size: 0.8rem; background: #020617; padding: 10px; border-radius: 5px; margin-top: 10px; }
+        .orange-text { color: #fb923c; }
+        .yellow-text { color: #fde047; }
+    </style>
+</head>
+<body>
+
+    <h1 style="margin-bottom: 10px;">big orange 3<span class="orange-text"></span></h1>
+
+    <div id="game-container">
+        <div id="board"></div>
+
+        <div id="ui">
+            <div id="turn-display" class="turn-indicator">your turn</div>
+            <div id="stat-display">
+                <small>select a piece to see ability</small>
+            </div>
+            <div class="log" id="game-log">game Started. yellow moves first.</div>
+        </div>
+    </div>
+
+    <script>
+        const boardEl = document.getElementById('board');
+        const logEl = document.getElementById('game-log');
+        const turnDisplay = document.getElementById('turn-display');
+        const statDisplay = document.getElementById('stat-display');
+
+        const PIECES = {
+            p: { name: 'Pawn', hp: 30, dmg: 15, icon: '♟', desc: 'Melee: Hits 1 square ahead.' },
+            n: { name: 'Knight', hp: 60, dmg: 25, icon: '♞', desc: 'Jump Strike: Hits target square hard.' },
+            b: { name: 'Bishop', hp: 50, dmg: 20, icon: '♝', desc: 'Splash: Hits target and neighbors.' },
+            r: { name: 'Rook', hp: 80, dmg: 30, icon: '♜', desc: 'Line Crush: Heavy single target.' },
+            q: { name: 'Queen', hp: 100, dmg: 40, icon: '♛', desc: 'Squeeze: Massive 3x3 AOE blast.' },
+            k: { name: 'King', hp: 200, dmg: 20, icon: '♚', desc: 'Royal Guard: Counter-attacks.' }
+        };
+
+        let board = [];
+        let selectedSq = null;
+        let validMoves = [];
+        let currentTurn = 'yellow'; // yellow vs orange
+        let gameOver = false;
+
+        function initBoard() {
+            const layout = [
+                ['r','n','b','q','k','b','n','r'],
+                ['p','p','p','p','p','p','p','p'],
+                [],[],[],[],
+                ['p','p','p','p','p','p','p','p'],
+                ['r','n','b','q','k','b','n','r']
+            ];
+
+            for(let r=0; r<8; r++) {
+                board[r] = [];
+                for(let c=0; c<8; c++) {
+                    let type = layout[r] ? layout[r][c] : null;
+                    if(type) {
+                        let color = r < 2 ? 'orange' : 'yellow';
+                        board[r][c] = { type, color, hp: PIECES[type].hp, maxHp: PIECES[type].hp };
+                    } else {
+                        board[r][c] = null;
+                    }
+                }
+            }
+            render();
+        }
+
+        function render() {
+            boardEl.innerHTML = '';
+            for(let r=0; r<8; r++) {
+                for(let c=0; c<8; c++) {
+                    const sq = document.createElement('div');
+                    sq.className = `sq ${(r+c)%2===0 ? 'light' : 'dark'}`;
+                    if(selectedSq && selectedSq.r === r && selectedSq.c === c) sq.classList.add('selected');
+                    if(validMoves.some(m => m.r === r && m.c === c)) sq.classList.add('valid-move');
+                    
+                    const piece = board[r][c];
+                    if(piece) {
+                        const pDiv = document.createElement('div');
+                        pDiv.className = 'piece';
+                        pDiv.style.color = piece.color === 'orange' ? '#fb923c' : '#fde047';
+                        pDiv.innerText = PIECES[piece.type].icon;
+                        
+                        const hpBar = document.createElement('div');
+                        hpBar.className = 'hp-bar';
+                        const hpFill = document.createElement('div');
+                        hpFill.className = 'hp-fill';
+                        hpFill.style.width = (piece.hp / piece.maxHp * 100) + '%';
+                        hpBar.appendChild(hpFill);
+                        
+                        sq.appendChild(pDiv);
+                        sq.appendChild(hpBar);
+                    }
+
+                    sq.onclick = () => handleSquareClick(r, c);
+                    boardEl.appendChild(sq);
+                }
+            }
+        }
+
+        function handleSquareClick(r, c) {
+            if(gameOver || currentTurn === 'orange') return;
+
+            const piece = board[r][c];
+
+            // Select piece
+            if(piece && piece.color === currentTurn) {
+                selectedSq = {r, c};
+                validMoves = getValidMoves(r, c);
+                statDisplay.innerHTML = `<strong>${PIECES[piece.type].name}</strong><br>${PIECES[piece.type].desc}`;
+                render();
+                return;
+            }
+
+            // Move/Attack
+            const move = validMoves.find(m => m.r === r && m.c === c);
+            if(move) {
+                executeMove(selectedSq.r, selectedSq.c, r, c);
+                selectedSq = null;
+                validMoves = [];
+                if(!gameOver) {
+                    currentTurn = 'orange';
+                    turnDisplay.innerText = "Orange Thinking...";
+                    setTimeout(aiMove, 600);
+                }
+            }
+        }
+
+        function getValidMoves(r, c) {
+            const piece = board[r][c];
+            if(!piece) return [];
+            let moves = [];
+            // Simplified standard chess move logic
+            const dirs = {
+                r: [[0,1],[0,-1],[1,0],[-1,0]],
+                b: [[1,1],[1,-1],[-1,1],[-1,-1]],
+                q: [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]],
+                k: [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]]
+            };
+
+            if(piece.type === 'p') {
+                let dir = piece.color === 'yellow' ? -1 : 1;
+                if(board[r+dir] && !board[r+dir][c]) moves.push({r: r+dir, c: c});
+                // Capture moves (diagonal)
+                [[dir, 1], [dir, -1]].forEach(d => {
+                    let nr = r+d[0], nc = c+d[1];
+                    if(board[nr] && board[nr][nc] && board[nr][nc].color !== piece.color) moves.push({r: nr, c: nc});
+                });
+            } else if(piece.type === 'n') {
+                [[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]].forEach(d => {
+                    let nr = r+d[0], nc = c+d[1];
+                    if(board[nr] && (board[nr][nc] === undefined || !board[nr][nc] || board[nr][nc].color !== piece.color)) moves.push({r: nr, c: nc});
+                });
+            } else {
+                dirs[piece.type].forEach(d => {
+                    for(let i=1; i<8; i++) {
+                        let nr = r + d[0]*i, nc = c + d[1]*i;
+                        if(board[nr] && board[nr][nc] === null) {
+                            moves.push({r: nr, c: nc});
+                            if(piece.type === 'k') break;
+                        } else if(board[nr] && board[nr][nc]) {
+                            if(board[nr][nc].color !== piece.color) moves.push({r: nr, c: nc});
+                            break;
+                        } else break;
+                    }
+                });
+            }
+            return moves;
+        }
+
+        function executeMove(fromR, fromC, toR, toC) {
+            const attacker = board[fromR][fromC];
+            const target = board[toR][toC];
+
+            addLog(`${attacker.color} ${attacker.type} moves to ${toR},${toC}`);
+
+            if(target && target.color !== attacker.color) {
+                // ABILITY ATTACK TWEAK
+                applyAbility(attacker, fromR, fromC, toR, toC);
+            } else {
+                // Just move
+                board[toR][toC] = attacker;
+                board[fromR][fromC] = null;
+            }
+
+            render();
+            checkGameOver();
+        }
+
+        function applyAbility(attacker, fr, fc, tr, tc) {
+            let targets = [{r: tr, c: tc}];
+            
+            if(attacker.type === 'q') {
+                // 3x3 Area around target
+                for(let r=tr-1; r<=tr+1; r++) {
+                    for(let c=tc-1; c<=tc+1; c++) {
+                        if(r===tr && c===tc) continue;
+                        targets.push({r, c});
+                    }
+                }
+            } else if(attacker.type === 'b') {
+                // Diamond splash
+                [[0,1],[0,-1],[1,0],[-1,0]].forEach(d => targets.push({r: tr+d[0], c: tc+d[1]}));
+            }
+
+            targets.forEach(t => {
+                if(board[t.r] && board[t.r][t.c] && board[t.r][t.c].color !== attacker.color) {
+                    let victim = board[t.r][t.c];
+                    victim.hp -= PIECES[attacker.type].dmg;
+                    addLog(`${attacker.type} hit ${victim.type} for ${PIECES[attacker.type].dmg}!`, true);
+                    if(victim.hp <= 0) {
+                        addLog(`${victim.type} juiced!`);
+                        board[t.r][t.c] = null;
+                    }
+                }
+            });
+
+            // After attack, attacker moves to the primary target square if empty
+            if(!board[tr][tc]) {
+                board[tr][tc] = attacker;
+                board[fr][fc] = null;
+            }
+        }
+
+        function addLog(msg, isDmg = false) {
+            const div = document.createElement('div');
+            if(isDmg) div.style.color = '#ef4444';
+            div.innerText = msg;
+            logEl.prepend(div);
+        }
+
+        function checkGameOver() {
+            let orangeKing = false, yellowKing = false;
+            board.flat().forEach(p => {
+                if(p && p.type === 'k') {
+                    if(p.color === 'orange') orangeKing = true;
+                    if(p.color === 'yellow') yellowKing = true;
+                }
+            });
+
+            if(!orangeKing) { end("GG! Yellow Wins!"); }
+            else if(!yellowKing) { end("Orange Juiced You... Game Over."); }
+        }
+
+        function end(text) {
+            gameOver = true;
+            turnDisplay.innerText = text;
+            alert(text);
+        }
+
+        // --- THE "REALLY GOOD" AI (Minimax with alpha-beta) ---
+        function aiMove() {
+            if(gameOver) return;
+            let bestMove = minimax(board, 3, -Infinity, Infinity, true).move;
+            if(bestMove) {
+                executeMove(bestMove.fr, bestMove.fc, bestMove.tr, bestMove.tc);
+            }
+            currentTurn = 'yellow';
+            turnDisplay.innerText = "Your Turn";
+        }
+
+        function evaluateBoard(state) {
+            let score = 0;
+            const values = { p: 10, n: 30, b: 30, r: 50, q: 90, k: 900 };
+            for(let r=0; r<8; r++) {
+                for(let c=0; c<8; c++) {
+                    let p = state[r][c];
+                    if(p) {
+                        let val = values[p.type] + (p.hp / 2);
+                        score += (p.color === 'orange' ? val : -val);
+                    }
+                }
+            }
+            return score;
+        }
+
+        function minimax(state, depth, alpha, beta, isMaximizing) {
+            if(depth === 0) return { score: evaluateBoard(state) };
+
+            let legals = [];
+            for(let r=0; r<8; r++) {
+                for(let c=0; c<8; c++) {
+                    let p = state[r][c];
+                    if(p && p.color === (isMaximizing ? 'orange' : 'yellow')) {
+                        let moves = getValidMoves(r, c);
+                        moves.forEach(m => legals.push({fr: r, fc: c, tr: m.r, tc: m.c}));
+                    }
+                }
+            }
+
+            if(isMaximizing) {
+                let maxEval = -Infinity, bestMove = null;
+                for(let m of legals) {
+                    let newState = JSON.parse(JSON.stringify(state));
+                    // Fake execute
+                    newState[m.tr][m.tc] = newState[m.fr][m.fc];
+                    newState[m.fr][m.fc] = null;
+                    let ev = minimax(newState, depth-1, alpha, beta, false).score;
+                    if(ev > maxEval) { maxEval = ev; bestMove = m; }
+                    alpha = Math.max(alpha, ev);
+                    if(beta <= alpha) break;
+                }
+                return { score: maxEval, move: bestMove };
+            } else {
+                let minEval = Infinity, bestMove = null;
+                for(let m of legals) {
+                    let newState = JSON.parse(JSON.stringify(state));
+                    newState[m.tr][m.tc] = newState[m.fr][m.fc];
+                    newState[m.fr][m.fc] = null;
+                    let ev = minimax(newState, depth-1, alpha, beta, true).score;
+                    if(ev < minEval) { minEval = ev; bestMove = m; }
+                    beta = Math.min(beta, ev);
+                    if(beta <= alpha) break;
+                }
+                return { score: minEval, move: bestMove };
+            }
+        }
+
+        initBoard();
+    </script>
+</body>
+</html>
