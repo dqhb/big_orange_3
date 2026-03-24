@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Orange Chess: Pro Edition</title>
+    <title>big orange 3</title>
     <style>
         body { margin: 0; background: #020617; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
         #game-container { display: flex; gap: 20px; align-items: flex-start; }
@@ -30,14 +30,14 @@
 </head>
 <body>
 
-    <h1 style="margin-bottom: 15px;">Orange Chess: <span class="orange-text">Tactical Squeeze</span></h1>
+    <h1 style="margin-bottom: 15px;">big orange 3<span class="orange-text"></span></h1>
 
     <div id="game-container">
         <div id="board"></div>
         <div id="ui">
-            <div id="turn-display" style="font-size: 1.4rem; font-weight: bold; color: #fb923c;">Your Turn</div>
-            <div id="stat-display" style="margin-top: 10px; font-size: 0.9rem; min-height: 40px;">Double-move pawns or Castle!</div>
-            <div class="log" id="game-log">Yellow's King heals allies 3x3!</div>
+            <div id="turn-display" style="font-size: 1.4rem; font-weight: bold; color: #fb923c;">your turn</div>
+            <div id="stat-display" style="margin-top: 10px; font-size: 0.9rem; min-height: 40px;">double-move pawns or castle</div>
+            <div class="log" id="game-log">yellow's king heals allies 3x3!</div>
         </div>
     </div>
 
@@ -230,7 +230,7 @@
                 attacker.type = 'q';
                 attacker.hp = PIECES.q.hp;
                 attacker.maxHp = PIECES.q.hp;
-                addLog(`${attacker.color} Pawn promoted to QUEEN!`);
+                addLog(`${attacker.color} pawn promoted to QUEEN`);
             }
 
             processEndTurn(attacker.color);
