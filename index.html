@@ -88,7 +88,7 @@
         }
 
         function clearCanvas(force = false) {
-            if(!force && level.objects.length > 0 && !confirm("Wipe level?")) return;
+            if(!force && level.objects.length > 0 && !confirm("clear level?")) return;
             level = { objects: [], start: null };
             selectedObj = null;
             document.getElementById('inspector').classList.add('hidden');
