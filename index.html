@@ -38,11 +38,11 @@
             <div id="mode-text" style="font-weight:bold; margin-bottom:5px; color:#fb923c;">mode: editing</div>
             <div id="editor-tools">
                 <button class="tool-btn" onclick="setTool(this, 'block')">block</button>
-                <button class="tool-btn" onclick="setTool(this, 'tramp')">bounce</button>
+                <button class="tool-btn" onclick="setTool(this, 'bounce')">bounce</button>
                 <button class="tool-btn" onclick="setTool(this, 'saw')">saw</button>
                 <button class="tool-btn" onclick="setTool(this, 'pusher')">beam</button>
                 <button class="tool-btn" onclick="setTool(this, 'spike')">spike</button>
-                <button class="tool-btn" onclick="setTool(this, 'goal')">end</button>
+                <button class="tool-btn" onclick="setTool(this, 'end')">end</button>
                 <button class="tool-btn" onclick="setTool(this, 'start')">start</button>
                 <button class="tool-btn active" onclick="setTool(this, 'select')" style="width:94%; background:#fb923c; margin-top:5px;">edit / move</button>
                 <hr style="border:0; border-top:1px solid #431407; margin: 10px 0;">
@@ -88,7 +88,7 @@
         }
 
         function clearCanvas(force = false) {
-            if(!force && level.objects.length > 0 && !confirm("clear level?")) return;
+            if(!force && level.objects.length > 0 && !confirm("Wipe level?")) return;
             level = { objects: [], start: null };
             selectedObj = null;
             document.getElementById('inspector').classList.add('hidden');
@@ -115,9 +115,9 @@
         function saveLevel() {
             const name = prompt("Level name:");
             if (!name) return;
-            const saves = JSON.parse(localStorage.getItem('bo4_levels') || '{}');
+            const saves = JSON.parse(localStorage.getItem('bo3_levels') || '{}');
             saves[name] = level;
-            localStorage.setItem('bo4_levels', JSON.stringify(saves));
+            localStorage.setItem('bo3_levels', JSON.stringify(saves));
         }
 
         function toggleOpenList() {
@@ -127,7 +127,7 @@
 
         function renderLevelList() {
             const container = document.getElementById('level-list-container');
-            const saves = JSON.parse(localStorage.getItem('bo4_levels') || '{}');
+            const saves = JSON.parse(localStorage.getItem('bo3_levels') || '{}');
             container.innerHTML = '';
             Object.keys(saves).forEach(k => {
                 const div = document.createElement('div');
@@ -137,10 +137,15 @@
             });
         }
 
-        function deleteSavedLevel(n) { delete JSON.parse(localStorage.getItem('bo4_levels'))[n]; renderLevelList(); }
+        function deleteSavedLevel(n) { 
+            const saves = JSON.parse(localStorage.getItem('bo3_levels'));
+            delete saves[n];
+            localStorage.setItem('bo3_levels', JSON.stringify(saves));
+            renderLevelList(); 
+        }
 
         function loadLevel(n) {
-            level = JSON.parse(localStorage.getItem('bo4_levels'))[n];
+            level = JSON.parse(localStorage.getItem('bo3_levels'))[n];
             isSharedMode = false;
             document.getElementById('editor-tools').classList.remove('hidden');
             document.getElementById('home-screen').classList.add('hidden');
@@ -160,7 +165,7 @@
             if(!level.start) { alert("Place a start!"); return; }
             mode = (mode === 'edit') ? 'play' : 'edit';
             document.getElementById('mode-text').innerText = "mode: " + mode;
-            if(mode === 'play') { p.x = level.start.x + 5; p.y = level.start.y + 5; p.vx = p.vy = 0; }
+            if(mode === 'play') { p.x = level.start.x - 15; p.y = level.start.y - 15; p.vx = p.vy = 0; }
         }
 
         function deleteObj() {
@@ -204,12 +209,11 @@
 
                     if(o.type === 'block') {
                         if(Math.abs(rx) < o.w/2 + 15 && Math.abs(ry) < o.h/2 + 15 && p.vy >= 0) {
-                             p.y = o.y + (ry > 0 ? o.h/2+15 : -o.h/2-15); p.vy = 0; p.jumps = 2;
+                             p.y = o.y + (ry > 0 ? o.h/2+15 : -o.h/2-15) - 15; p.vy = 0; p.jumps = 2;
                         }
-                    } else if(o.type === 'tramp') {
+                    } else if(o.type === 'bounce') {
                         if(Math.abs(rx) < o.w/2 + 15 && Math.abs(ry) < o.h/2 + 15) {
-                            let launchX = Math.sin(o.angle) * 18, launchY = -Math.cos(o.angle) * 18;
-                            p.vx = launchX; p.vy = launchY; p.jumps = 1;
+                            p.vx = Math.sin(o.angle) * 18; p.vy = -Math.cos(o.angle) * 18; p.jumps = 1;
                         }
                     } else if(o.type === 'saw') {
                         o.angle += o.speed;
@@ -218,11 +222,13 @@
                         o.angle += o.speed;
                         if(Math.abs(rx) < o.r && Math.abs(ry) < 15) togglePlay();
                     } else if(o.type === 'spike') {
-                        if(Math.abs(rx) < 15 && Math.abs(ry) < 15) togglePlay();
-                    } else if(o.type === 'goal') {
-                        if(Math.abs(rx) < 20 && Math.abs(ry) < 20) {
-                            if(isSharedMode) { alert("Victory!"); exitToMenu(); }
-                            else { alert("Test Passed!"); togglePlay(); }
+                        // Detailed clumped hitbox check
+                        if(Math.abs(rx) < 16 && ry > -15 && ry < 20) togglePlay();
+                        if(Math.abs(rx) < 8 && ry > -20 && ry < 20) togglePlay();
+                    } else if(o.type === 'end') {
+                        if(Math.abs(rx) < 25 && Math.abs(ry) < 25) {
+                            if(isSharedMode) { alert("victory!"); exitToMenu(); }
+                            else { alert("test passed!"); togglePlay(); }
                         }
                     }
                 });
@@ -241,20 +247,24 @@
                 ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(o.angle);
                 ctx.fillStyle = "#ea580c";
                 if(o.type === 'block') ctx.fillRect(-o.w/2, -o.h/2, o.w, o.h);
-                else if(o.type === 'tramp') { ctx.fillStyle="#a855f7"; ctx.fillRect(-o.w/2, -o.h/2, o.w, o.h); ctx.fillStyle="#f97316"; ctx.fillRect(-o.w/2, -o.h/2, o.w, 10); }
+                else if(o.type === 'bounce') { ctx.fillStyle="#ea580c"; ctx.fillRect(-o.w/2, -o.h/2, o.w, o.h); ctx.fillStyle="#fb923c"; ctx.fillRect(-o.w/2, -o.h/2, o.w, 10); }
                 else if(o.type === 'saw') { for(let i=0; i<8; i++) { ctx.rotate(Math.PI/4); ctx.fillRect(-5, -o.r-10, 10, 20); } ctx.beginPath(); ctx.arc(0,0,o.r,0,Math.PI*2); ctx.fill(); }
                 else if(o.type === 'pusher') { ctx.fillStyle="#fde047"; ctx.fillRect(-o.r, -10, o.r*2, 20); }
                 else if(o.type === 'spike') { ctx.beginPath(); ctx.moveTo(-20, 20); ctx.lineTo(0, -20); ctx.lineTo(20, 20); ctx.fill(); }
-                else if(o.type === 'goal') { ctx.fillStyle="#fbbf24"; ctx.fillRect(-20,-20,40,40); }
+                else if(o.type === 'end') { ctx.fillStyle="#fbbf24"; ctx.fillRect(-20,-20,40,40); }
                 ctx.restore();
-                if(o === selectedObj) { ctx.strokeStyle="white"; ctx.lineWidth=2; ctx.strokeRect(o.x-o.w/2-5, o.y-o.h/2-5, (o.w||o.r*2)+10, (o.h||40)+10); }
+                if(o === selectedObj) { ctx.strokeStyle="white"; ctx.lineWidth=2; ctx.strokeRect(o.x-25, o.y-25, 50, 50); }
             });
 
-            if(level.start) { ctx.fillStyle="#22c55e"; ctx.fillRect(level.start.x-20, level.start.y-20, 40, 40); }
+            if(level.start) { ctx.fillStyle="#22c55e"; ctx.fillRect(level.start.x-20, level.start.y-20, 40, 40); if(level.start === selectedObj) { ctx.strokeStyle="white"; ctx.strokeRect(level.start.x-25, level.start.y-25, 50, 50); } }
 
+            // PLAYER DRAW
             ctx.save(); ctx.translate(p.x+15, p.y+15); ctx.rotate(p.rot);
             ctx.fillStyle = "#f97316"; ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill();
+            // Eyes
             ctx.fillStyle="black"; ctx.beginPath(); ctx.arc(-6,-4,2,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(6,-4,2,0,7); ctx.fill();
+            // Mouth
+            ctx.strokeStyle="black"; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(0, 3, 5, 0, Math.PI); ctx.stroke();
             ctx.restore(); ctx.restore();
         }
 
@@ -264,17 +274,19 @@
             let gx = Math.floor(mx/GRID)*GRID + 20, gy = Math.floor(my/GRID)*GRID + 20;
 
             if(currentTool === 'select') {
-                selectedObj = [...level.objects, level.start].find(o => o && Math.hypot(mx-o.x, my-o.y) < 40);
+                selectedObj = [...level.objects, level.start].find(o => o && Math.hypot(mx-o.x, my-o.y) < 30);
                 if(selectedObj) {
                     document.getElementById('inspector').classList.remove('hidden');
                     document.getElementById('speed-range').value = (selectedObj.speed*1000 || selectedObj.angle*100 || 0);
-                }
+                    document.getElementById('scale-range').value = (selectedObj.w || selectedObj.r*2 || 40);
+                } else { document.getElementById('inspector').classList.add('hidden'); }
             } else if(currentTool === 'start') level.start = {x:gx, y:gy};
             else {
                 let obj = {type:currentTool, x:gx, y:gy, angle:0};
-                if(currentTool==='block' || currentTool==='tramp') { obj.w=40; obj.h=40; }
+                if(currentTool==='block' || currentTool==='bounce') { obj.w=40; obj.h=40; }
                 if(currentTool==='saw') { obj.r=25; obj.speed=0.05; }
                 if(currentTool==='pusher') { obj.r=100; obj.speed=0.03; }
+                if(currentTool==='spike' || currentTool==='end') { obj.w=40; obj.h=40; }
                 level.objects.push(obj);
             }
         };
