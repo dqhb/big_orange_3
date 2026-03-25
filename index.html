@@ -4,305 +4,286 @@
     <meta charset="UTF-8">
     <title>big orange 3</title>
     <style>
-        body { margin: 0; background: #020617; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        #game-container { display: flex; gap: 20px; align-items: flex-start; }
-        #board { display: grid; grid-template-columns: repeat(8, 60px); grid-template-rows: repeat(8, 60px); border: 5px solid #1e293b; user-select: none; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        .sq { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; }
-        .sq.light { background: #f1f5f9; }
-        .sq.dark { background: #64748b; }
-        .sq.selected { background: #fde047 !important; }
-        .sq.valid-move { background: #86efac !important; }
-        .sq.aoe-target { background: #ef4444 !important; opacity: 0.8; }
-        
-        .piece { font-size: 40px; z-index: 10; transition: all 0.2s; position: relative; }
-        .piece.damaged { filter: brightness(0) invert(1) sepia(1) saturate(10000%) hue-rotate(0deg); transform: scale(1.3); }
-        .piece.rage { text-shadow: 0 0 10px #ff0000, 0 0 20px #ff4400; animation: pulse 1s infinite; }
-        
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
-
-        .hp-bar { position: absolute; bottom: 2px; left: 5px; width: 50px; height: 6px; background: #450a0a; border: 1px solid black; z-index: 20; }
-        .hp-fill { height: 100%; background: #22c55e; transition: width 0.3s; }
-        
-        #ui { width: 260px; background: #0f172a; padding: 20px; border-radius: 10px; border: 2px solid #fb923c; }
-        .log { height: 180px; overflow-y: auto; font-size: 0.8rem; background: #020617; padding: 10px; border-radius: 5px; margin-top: 10px; border: 1px solid #334155; }
-        .orange-text { color: #fb923c; }
+        body { margin: 0; overflow: hidden; font-family: 'courier new', monospace; color: #ffedd5; text-transform: lowercase; background: #431407; }
+        #home-screen { position: absolute; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #f97316; z-index: 100; }
+        #editor-screen { position: absolute; width: 100%; height: 100%; display: none; background: #7c2d12; z-index: 5; }
+        .hidden { display: none !important; }
+        h1 { font-size: 5rem; margin: 0; color: #431407; letter-spacing: -2px; }
+        .menu-btn { background: #ea580c; color: white; border: none; padding: 15px 30px; margin: 10px; font-size: 1.2rem; cursor: pointer; border-radius: 8px; box-shadow: 0 4px 0 #9a3412; }
+        .menu-btn:hover { background: #431407; }
+        #editor-ui { position: absolute; top: 10px; left: 10px; z-index: 1000; background: rgba(43, 15, 7, 0.98); padding: 15px; border: 2px solid #ea580c; border-radius: 5px; width: 220px; }
+        .tool-btn { background: #ea580c; color: white; border: none; padding: 6px; cursor: pointer; margin: 2px; font-size: 0.75rem; width: 45%; border-radius: 4px; }
+        .tool-btn.active { background: #fde047; color: #431407; font-weight: bold; }
+        .inspector { margin-top: 10px; padding-top: 10px; border-top: 1px solid #ea580c; font-size: 0.8rem; }
+        .del-btn { background: #ef4444 !important; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .full-width { width: 94% !important; margin-top: 5px; }
+        #level-list-container { background:rgba(0,0,0,0.3); padding:15px; border-radius:8px; width:320px; margin-top:15px; max-height: 300px; overflow-y: auto; }
+        .level-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.1); margin-bottom: 8px; padding: 10px; border-radius: 5px; }
+        input[type=range] { width: 100%; accent-color: #fde047; }
+        canvas { display: block; }
     </style>
 </head>
 <body>
 
-    <h1 style="margin-bottom: 15px;">big orange 3<span class="orange-text"></span></h1>
+    <div id="home-screen">
+        <h1>big orange 3</h1>
+        <button class="menu-btn" onclick="startNewLevel()">new game</button>
+        <button class="menu-btn" onclick="enterGameCode()">enter game code</button>
+        <button class="menu-btn" onclick="toggleOpenList()">open saved</button>
+        <div id="level-list-container" class="hidden"></div>
+    </div>
 
-    <div id="game-container">
-        <div id="board"></div>
-        <div id="ui">
-            <div id="turn-display" style="font-size: 1.4rem; font-weight: bold; color: #fb923c;">your turn</div>
-            <div id="stat-display" style="margin-top: 10px; font-size: 0.9rem; min-height: 40px;"></div>
-            <div class="log" id="game-log"></div>
+    <div id="editor-screen">
+        <div id="editor-ui">
+            <div id="mode-text" style="font-weight:bold; margin-bottom:5px; color:#fb923c;">mode: editing</div>
+            <div id="editor-tools">
+                <button class="tool-btn" onclick="setTool(this, 'block')">block</button>
+                <button class="tool-btn" onclick="setTool(this, 'tramp')">bounce</button>
+                <button class="tool-btn" onclick="setTool(this, 'saw')">saw</button>
+                <button class="tool-btn" onclick="setTool(this, 'pusher')">beam</button>
+                <button class="tool-btn" onclick="setTool(this, 'spike')">spike</button>
+                <button class="tool-btn" onclick="setTool(this, 'goal')">end</button>
+                <button class="tool-btn" onclick="setTool(this, 'start')">start</button>
+                <button class="tool-btn active" onclick="setTool(this, 'select')" style="width:94%; background:#fb923c; margin-top:5px;">edit / move</button>
+                <hr style="border:0; border-top:1px solid #431407; margin: 10px 0;">
+                <button class="tool-btn" onclick="saveLevel()" style="background:#3b82f6">save</button>
+                <button class="tool-btn" onclick="getGameCode()" style="background:#8b5cf6">get code</button>
+                <button class="tool-btn del-btn full-width" onclick="clearCanvas()">clear canvas</button>
+            </div>
+
+            <div id="inspector" class="inspector hidden">
+                <div id="size-label">size</div>
+                <input type="range" id="scale-range" min="20" max="600" value="40" oninput="updateSelected()">
+                <div id="rot-label">rotation / speed</div>
+                <input type="range" id="speed-range" min="-314" max="314" value="0" oninput="updateSelected()">
+                <button class="tool-btn del-btn full-width" onclick="deleteObj()">delete object</button>
+            </div>
+            
+            <button class="tool-btn" id="play-btn" onclick="togglePlay()" style="background:#22c55e; width:94%; margin-top:10px; font-weight:bold;">play test</button>
+            <button class="tool-btn" onclick="exitToMenu()" style="width:94%; opacity:0.7;">exit menu</button>
         </div>
+        <canvas id="g"></canvas>
     </div>
 
     <script>
-        const boardEl = document.getElementById('board');
-        const logEl = document.getElementById('game-log');
-        const turnDisplay = document.getElementById('turn-display');
-        const statDisplay = document.getElementById('stat-display');
+        const canvas = document.getElementById('g');
+        const ctx = canvas.getContext('2d');
+        const GRID = 40;
 
-        const PIECES = {
-            p: { name: 'Pawn', hp: 40, dmg: 15, icon: '♟', aoe: 0 },
-            n: { name: 'Knight', hp: 65, dmg: 30, icon: '♞', aoe: 0 },
-            b: { name: 'Bishop', hp: 55, dmg: 20, icon: '♝', aoe: 1 },
-            r: { name: 'Rook', hp: 90, dmg: 35, icon: '♜', aoe: 0 },
-            q: { name: 'Queen', hp: 110, dmg: 45, icon: '♛', aoe: 2 },
-            k: { name: 'King', hp: 250, dmg: 20, icon: '♚', aoe: 0, heal: 20 }
+        let mode = 'edit';
+        let isSharedMode = false;
+        let currentTool = 'select';
+        let camX = 0, camY = 0;
+        let selectedObj = null;
+        let level = { objects: [], start: null };
+        const p = { x: 0, y: 0, vx: 0, vy: 0, jumps: 0, rot: 0, w: 30, h: 30 };
+
+        function startNewLevel() {
+            clearCanvas(true);
+            isSharedMode = false;
+            document.getElementById('editor-tools').classList.remove('hidden');
+            document.getElementById('home-screen').classList.add('hidden');
+            document.getElementById('editor-screen').style.display = 'block';
+            resize();
+        }
+
+        function clearCanvas(force = false) {
+            if(!force && level.objects.length > 0 && !confirm("Wipe level?")) return;
+            level = { objects: [], start: null };
+            selectedObj = null;
+            document.getElementById('inspector').classList.add('hidden');
+        }
+
+        function getGameCode() {
+            navigator.clipboard.writeText(btoa(JSON.stringify(level)));
+            alert("Code copied!");
+        }
+
+        function enterGameCode() {
+            const code = prompt("Paste code:");
+            if (!code) return;
+            try {
+                level = JSON.parse(atob(code));
+                isSharedMode = true;
+                document.getElementById('home-screen').classList.add('hidden');
+                document.getElementById('editor-screen').style.display = 'block';
+                document.getElementById('editor-tools').classList.add('hidden');
+                togglePlay(); resize();
+            } catch(e) { alert("Invalid code!"); }
+        }
+
+        function saveLevel() {
+            const name = prompt("Level name:");
+            if (!name) return;
+            const saves = JSON.parse(localStorage.getItem('bo4_levels') || '{}');
+            saves[name] = level;
+            localStorage.setItem('bo4_levels', JSON.stringify(saves));
+        }
+
+        function toggleOpenList() {
+            document.getElementById('level-list-container').classList.toggle('hidden');
+            renderLevelList();
+        }
+
+        function renderLevelList() {
+            const container = document.getElementById('level-list-container');
+            const saves = JSON.parse(localStorage.getItem('bo4_levels') || '{}');
+            container.innerHTML = '';
+            Object.keys(saves).forEach(k => {
+                const div = document.createElement('div');
+                div.className = 'level-item';
+                div.innerHTML = `<b>${k}</b><div><button onclick="loadLevel('${k}')">load</button><button class="del-btn" onclick="deleteSavedLevel('${k}')">X</button></div>`;
+                container.appendChild(div);
+            });
+        }
+
+        function deleteSavedLevel(n) { delete JSON.parse(localStorage.getItem('bo4_levels'))[n]; renderLevelList(); }
+
+        function loadLevel(n) {
+            level = JSON.parse(localStorage.getItem('bo4_levels'))[n];
+            isSharedMode = false;
+            document.getElementById('editor-tools').classList.remove('hidden');
+            document.getElementById('home-screen').classList.add('hidden');
+            document.getElementById('editor-screen').style.display = 'block';
+            resize();
+        }
+
+        function setTool(btn, t) {
+            currentTool = t;
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedObj = null;
+            document.getElementById('inspector').classList.add('hidden');
+        }
+
+        function togglePlay() {
+            if(!level.start) { alert("Place a start!"); return; }
+            mode = (mode === 'edit') ? 'play' : 'edit';
+            document.getElementById('mode-text').innerText = "mode: " + mode;
+            if(mode === 'play') { p.x = level.start.x + 5; p.y = level.start.y + 5; p.vx = p.vy = 0; }
+        }
+
+        function deleteObj() {
+            level.objects = level.objects.filter(o => o !== selectedObj);
+            if(level.start === selectedObj) level.start = null;
+            selectedObj = null;
+            document.getElementById('inspector').classList.add('hidden');
+        }
+
+        function updateSelected() {
+            if(!selectedObj) return;
+            const s = parseInt(document.getElementById('scale-range').value);
+            const val = parseInt(document.getElementById('speed-range').value);
+            if(selectedObj.w !== undefined) { selectedObj.w = selectedObj.h = s; }
+            if(selectedObj.r !== undefined) { selectedObj.r = s/2; }
+            
+            if(['saw', 'pusher'].includes(selectedObj.type)) selectedObj.speed = val/1000;
+            else selectedObj.angle = val/100;
+        }
+
+        const keys = {};
+        window.onkeydown = e => { keys[e.code] = true; };
+        window.onkeyup = e => keys[e.code] = false;
+
+        function update() {
+            if(mode === 'play') {
+                if(keys['ArrowLeft'] || keys['KeyA']) p.vx -= 0.8;
+                if(keys['ArrowRight'] || keys['KeyD']) p.vx += 0.8;
+                if((keys['Space'] || keys['ArrowUp'] || keys['KeyW']) && p.jumps > 0 && !p.lock) { p.vy = -11.5; p.jumps--; p.lock = true; }
+                if(!(keys['Space'] || keys['ArrowUp'] || keys['KeyW'])) p.lock = false;
+
+                p.vx *= 0.88; p.vy += 0.55; p.x += p.vx; p.y += p.vy;
+                p.rot += p.vx * 0.05; 
+                camX += (p.x - canvas.width/2 - camX) * 0.1;
+                camY += (p.y - canvas.height/2 - camY) * 0.1;
+
+                level.objects.forEach(o => {
+                    let dx = p.x+15 - o.x, dy = p.y+15 - o.y;
+                    let rx = dx * Math.cos(-o.angle) - dy * Math.sin(-o.angle);
+                    let ry = dx * Math.sin(-o.angle) + dy * Math.cos(-o.angle);
+
+                    if(o.type === 'block') {
+                        if(Math.abs(rx) < o.w/2 + 15 && Math.abs(ry) < o.h/2 + 15 && p.vy >= 0) {
+                             p.y = o.y + (ry > 0 ? o.h/2+15 : -o.h/2-15); p.vy = 0; p.jumps = 2;
+                        }
+                    } else if(o.type === 'tramp') {
+                        if(Math.abs(rx) < o.w/2 + 15 && Math.abs(ry) < o.h/2 + 15) {
+                            let launchX = Math.sin(o.angle) * 18, launchY = -Math.cos(o.angle) * 18;
+                            p.vx = launchX; p.vy = launchY; p.jumps = 1;
+                        }
+                    } else if(o.type === 'saw') {
+                        o.angle += o.speed;
+                        if(Math.hypot(dx, dy) < o.r + 10) togglePlay();
+                    } else if(o.type === 'pusher') {
+                        o.angle += o.speed;
+                        if(Math.abs(rx) < o.r && Math.abs(ry) < 15) togglePlay();
+                    } else if(o.type === 'spike') {
+                        if(Math.abs(rx) < 15 && Math.abs(ry) < 15) togglePlay();
+                    } else if(o.type === 'goal') {
+                        if(Math.abs(rx) < 20 && Math.abs(ry) < 20) {
+                            if(isSharedMode) { alert("Victory!"); exitToMenu(); }
+                            else { alert("Test Passed!"); togglePlay(); }
+                        }
+                    }
+                });
+                if(p.y > camY + canvas.height + 1000) togglePlay();
+            } else {
+                if(keys['ArrowRight']) camX += 12; if(keys['ArrowLeft']) camX -= 12;
+                if(keys['ArrowUp']) camY -= 12; if(keys['ArrowDown']) camY += 12;
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.save(); ctx.translate(-camX, -camY);
+
+            level.objects.forEach(o => {
+                ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(o.angle);
+                ctx.fillStyle = "#ea580c";
+                if(o.type === 'block') ctx.fillRect(-o.w/2, -o.h/2, o.w, o.h);
+                else if(o.type === 'tramp') { ctx.fillStyle="#a855f7"; ctx.fillRect(-o.w/2, -o.h/2, o.w, o.h); ctx.fillStyle="#f97316"; ctx.fillRect(-o.w/2, -o.h/2, o.w, 10); }
+                else if(o.type === 'saw') { for(let i=0; i<8; i++) { ctx.rotate(Math.PI/4); ctx.fillRect(-5, -o.r-10, 10, 20); } ctx.beginPath(); ctx.arc(0,0,o.r,0,Math.PI*2); ctx.fill(); }
+                else if(o.type === 'pusher') { ctx.fillStyle="#fde047"; ctx.fillRect(-o.r, -10, o.r*2, 20); }
+                else if(o.type === 'spike') { ctx.beginPath(); ctx.moveTo(-20, 20); ctx.lineTo(0, -20); ctx.lineTo(20, 20); ctx.fill(); }
+                else if(o.type === 'goal') { ctx.fillStyle="#fbbf24"; ctx.fillRect(-20,-20,40,40); }
+                ctx.restore();
+                if(o === selectedObj) { ctx.strokeStyle="white"; ctx.lineWidth=2; ctx.strokeRect(o.x-o.w/2-5, o.y-o.h/2-5, (o.w||o.r*2)+10, (o.h||40)+10); }
+            });
+
+            if(level.start) { ctx.fillStyle="#22c55e"; ctx.fillRect(level.start.x-20, level.start.y-20, 40, 40); }
+
+            ctx.save(); ctx.translate(p.x+15, p.y+15); ctx.rotate(p.rot);
+            ctx.fillStyle = "#f97316"; ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle="black"; ctx.beginPath(); ctx.arc(-6,-4,2,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(6,-4,2,0,7); ctx.fill();
+            ctx.restore(); ctx.restore();
+        }
+
+        canvas.onmousedown = e => {
+            if(mode !== 'edit') return;
+            let mx = e.clientX + camX, my = e.clientY + camY;
+            let gx = Math.floor(mx/GRID)*GRID + 20, gy = Math.floor(my/GRID)*GRID + 20;
+
+            if(currentTool === 'select') {
+                selectedObj = [...level.objects, level.start].find(o => o && Math.hypot(mx-o.x, my-o.y) < 40);
+                if(selectedObj) {
+                    document.getElementById('inspector').classList.remove('hidden');
+                    document.getElementById('speed-range').value = (selectedObj.speed*1000 || selectedObj.angle*100 || 0);
+                }
+            } else if(currentTool === 'start') level.start = {x:gx, y:gy};
+            else {
+                let obj = {type:currentTool, x:gx, y:gy, angle:0};
+                if(currentTool==='block' || currentTool==='tramp') { obj.w=40; obj.h=40; }
+                if(currentTool==='saw') { obj.r=25; obj.speed=0.05; }
+                if(currentTool==='pusher') { obj.r=100; obj.speed=0.03; }
+                level.objects.push(obj);
+            }
         };
 
-        let board = [], selectedSq = null, validMoves = [], currentTurn = 'yellow', gameOver = false;
-
-        function initBoard() {
-            const layout = [
-                ['r','n','b','q','k','b','n','r'],
-                ['p','p','p','p','p','p','p','p'],
-                [],[],[],[],
-                ['p','p','p','p','p','p','p','p'],
-                ['r','n','b','q','k','b','n','r']
-            ];
-            for(let r=0; r<8; r++) {
-                board[r] = [];
-                for(let c=0; c<8; c++) {
-                    let type = layout[r] && layout[r][c];
-                    if(type) {
-                        board[r][c] = { type, color: r < 2 ? 'orange' : 'yellow', hp: PIECES[type].hp, maxHp: PIECES[type].hp, moved: false };
-                    } else board[r][c] = null;
-                }
-            }
-            render();
-        }
-
-        function render() {
-            boardEl.innerHTML = '';
-            for(let r=0; r<8; r++) {
-                for(let c=0; c<8; c++) {
-                    const sq = document.createElement('div');
-                    sq.className = `sq ${(r+c)%2===0 ? 'light' : 'dark'}`;
-                    if(selectedSq?.r === r && selectedSq?.c === c) sq.classList.add('selected');
-                    if(validMoves.some(m => m.r === r && m.c === c)) sq.classList.add('valid-move');
-                    
-                    const p = board[r][c];
-                    if(p) {
-                        const isRage = p.hp <= p.maxHp * 0.25;
-                        const pDiv = document.createElement('div');
-                        pDiv.className = `piece ${p.flash ? 'damaged' : ''} ${isRage ? 'rage' : ''}`;
-                        pDiv.style.color = p.color === 'orange' ? '#fb923c' : '#fde047';
-                        pDiv.innerText = PIECES[p.type].icon;
-                        
-                        const hpBar = document.createElement('div');
-                        hpBar.className = 'hp-bar';
-                        const hpFill = document.createElement('div');
-                        hpFill.className = 'hp-fill';
-                        hpFill.style.width = (p.hp / p.maxHp * 100) + '%';
-                        hpBar.appendChild(hpFill);
-                        
-                        sq.appendChild(pDiv);
-                        sq.appendChild(hpBar);
-                    }
-                    sq.onclick = () => handleSquareClick(r, c);
-                    sq.onmouseenter = () => showAoePreview(r, c);
-                    sq.onmouseleave = () => clearAoePreview();
-                    boardEl.appendChild(sq);
-                }
-            }
-        }
-
-        function showAoePreview(r, c) {
-            if(!selectedSq) return;
-            const move = validMoves.find(m => m.r === r && m.c === c);
-            if(!move || !board[r][c] || board[r][c].color === board[selectedSq.r][selectedSq.c].color) return;
-            
-            getAffectedSquares(board[selectedSq.r][selectedSq.c], r, c).forEach(loc => {
-                const idx = loc.r * 8 + loc.c;
-                if(boardEl.children[idx]) boardEl.children[idx].classList.add('aoe-target');
-            });
-        }
-
-        function clearAoePreview() {
-            document.querySelectorAll('.sq').forEach(s => s.classList.remove('aoe-target'));
-        }
-
-        function handleSquareClick(r, c) {
-            if(gameOver || currentTurn === 'orange') return;
-            const p = board[r][c];
-            if(p?.color === currentTurn) {
-                selectedSq = {r, c};
-                validMoves = getValidMoves(r, c, board);
-                render();
-                return;
-            }
-            const move = validMoves.find(m => m.r === r && m.c === c);
-            if(move) {
-                executeMove(selectedSq.r, selectedSq.c, r, c);
-                selectedSq = null; validMoves = [];
-                currentTurn = 'orange'; turnDisplay.innerText = "Orange Thinking...";
-                setTimeout(aiTurn, 800);
-            }
-        }
-
-        function getValidMoves(r, c, state) {
-            const p = state[r][c];
-            if(!p) return [];
-            let moves = [];
-            const check = (nr, nc) => {
-                if(nr>=0 && nr<8 && nc>=0 && nc<8) {
-                    if(!state[nr][nc] || state[nr][nc].color !== p.color) moves.push({r: nr, c: nc});
-                    return !state[nr][nc];
-                }
-                return false;
-            };
-
-            if(p.type === 'p') {
-                let d = p.color === 'yellow' ? -1 : 1;
-                if(!state[r+d]?.[c]) {
-                    moves.push({r: r+d, c});
-                    if(!p.moved && !state[r+d*2]?.[c]) moves.push({r: r+d*2, c});
-                }
-                [[d,1],[d,-1]].forEach(off => {
-                    if(state[r+off[0]]?.[c+off[1]]?.color && state[r+off[0]][c+off[1]].color !== p.color) moves.push({r: r+off[0], c: c+off[1]});
-                });
-            } else if(p.type === 'n') {
-                [[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]].forEach(o => check(r+o[0], c+o[1]));
-            } else if(p.type === 'k') {
-                for(let i=-1; i<=1; i++) for(let j=-1; j<=1; j++) if(i!==0||j!==0) check(r+i, c+j);
-                if(!p.moved) {
-                    if(state[r][c+3]?.type==='r' && !state[r][c+3].moved && !state[r][c+1] && !state[r][c+2]) moves.push({r, c: c+2, castle: 'king'});
-                    if(state[r][c-4]?.type==='r' && !state[r][c-4].moved && !state[r][c-1] && !state[r][c-2] && !state[r][c-3]) moves.push({r, c: c-2, castle: 'queen'});
-                }
-            } else {
-                let dirs = p.type === 'r' ? [[0,1],[0,-1],[1,0],[-1,0]] : p.type === 'b' ? [[1,1],[1,-1],[-1,1],[-1,-1]] : [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
-                dirs.forEach(d => { for(let i=1; i<8; i++) if(!check(r+d[0]*i, c+d[1]*i)) break; });
-            }
-            return moves;
-        }
-
-        function getAffectedSquares(attacker, tr, tc) {
-            let targets = [{r: tr, c: tc}];
-            if(attacker.type === 'q') {
-                for(let i=-1; i<=1; i++) for(let j=-1; j<=1; j++) if(i!==0||j!==0) targets.push({r: tr+i, c: tc+j});
-            } else if(attacker.type === 'b') {
-                [[0,1],[0,-1],[1,0],[-1,0]].forEach(o => targets.push({r: tr+o[0], c: tc+o[1]}));
-            }
-            return targets;
-        }
-
-        function executeMove(fr, fc, tr, tc) {
-            const attacker = board[fr][fc];
-            const move = getValidMoves(fr, fc, board).find(m => m.r === tr && m.c === tc);
-            
-            // Castling Move logic
-            if(move?.castle) {
-                let rookC = move.castle === 'king' ? 7 : 0;
-                let newRookC = move.castle === 'king' ? 5 : 3;
-                board[fr][newRookC] = board[fr][rookC]; board[fr][rookC] = null;
-            }
-
-            // Damage logic
-            if(board[tr][tc] && board[tr][tc].color !== attacker.color) {
-                let isRage = attacker.hp <= attacker.maxHp * 0.25;
-                let finalDmg = isRage ? PIECES[attacker.type].dmg * 2 : PIECES[attacker.type].dmg;
-                
-                getAffectedSquares(attacker, tr, tc).forEach(loc => {
-                    let victim = board[loc.r]?.[loc.c];
-                    if(victim && victim.color !== attacker.color) {
-                        victim.hp -= finalDmg;
-                        victim.flash = true;
-                        setTimeout(() => { if(victim) victim.flash = false; render(); }, 150);
-                        if(victim.hp <= 0) board[loc.r][loc.c] = null;
-                    }
-                });
-            }
-
-            // Final Move Placement
-            if(!board[tr][tc]) { 
-                board[tr][tc] = attacker; board[fr][fc] = null; 
-            }
-            attacker.moved = true;
-
-            // PAWN PROMOTION
-            if(attacker.type === 'p' && (tr === 0 || tr === 7)) {
-                attacker.type = 'q';
-                attacker.hp = PIECES.q.hp;
-                attacker.maxHp = PIECES.q.hp;
-                addLog(`${attacker.color} Pawn promoted to QUEEN!`);
-            }
-
-            processEndTurn(attacker.color);
-            render(); checkGameOver();
-        }
-
-        function processEndTurn(color) {
-            board.flat().forEach(p => {
-                if(p && p.color === color && p.type === 'k') {
-                    let r, c;
-                    for(let i=0; i<8; i++) for(let j=0; j<8; j++) if(board[i][j] === p) { r=i; c=j; }
-                    for(let i=-1; i<=1; i++) for(let j=-1; j<=1; j++) {
-                        let ally = board[r+i]?.[c+j];
-                        if(ally && ally.color === color) ally.hp = Math.min(ally.maxHp, ally.hp + PIECES.k.heal);
-                    }
-                }
-            });
-        }
-
-        function aiTurn() {
-            if(gameOver) return;
-            let best = minimax(board, 2, -Infinity, Infinity, true).move;
-            if(best) executeMove(best.fr, best.fc, best.tr, best.tc);
-            currentTurn = 'yellow'; turnDisplay.innerText = "Your Turn";
-        }
-
-        function minimax(state, depth, alpha, beta, isMax) {
-            if(depth === 0) return { score: evalState(state) };
-            let moves = [];
-            for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
-                if(state[r][c]?.color === (isMax ? 'orange' : 'yellow')) {
-                    getValidMoves(r, c, state).forEach(m => moves.push({fr: r, fc: c, tr: m.r, tc: m.c}));
-                }
-            }
-            if(isMax) {
-                let maxS = -Infinity, best = null;
-                for(let m of moves) {
-                    let next = JSON.parse(JSON.stringify(state));
-                    next[m.tr][m.tc] = next[m.fr][m.fc]; next[m.fr][m.fc] = null;
-                    let s = minimax(next, depth-1, alpha, beta, false).score;
-                    if(s > maxS) { maxS = s; best = m; }
-                    alpha = Math.max(alpha, s); if(beta <= alpha) break;
-                }
-                return { score: maxS, move: best };
-            } else {
-                let minS = Infinity;
-                for(let m of moves) {
-                    let next = JSON.parse(JSON.stringify(state));
-                    next[m.tr][m.tc] = next[m.fr][m.fc]; next[m.fr][m.fc] = null;
-                    let s = minimax(next, depth-1, alpha, beta, true).score;
-                    minS = Math.min(minS, s);
-                    beta = Math.min(beta, s); if(beta <= alpha) break;
-                }
-                return { score: minS };
-            }
-        }
-
-        function evalState(s) {
-            let score = 0;
-            const vals = { p: 10, n: 30, b: 35, r: 50, q: 95, k: 800 };
-            s.flat().forEach(p => { if(p) score += (p.color === 'orange' ? (vals[p.type] + p.hp/4) : -(vals[p.type] + p.hp/4)); });
-            return score;
-        }
-
-        function addLog(m) { const d = document.createElement('div'); d.innerText = m; logEl.prepend(d); }
-        function checkGameOver() {
-            const kings = board.flat().filter(p => p?.type === 'k');
-            if(!kings.find(k => k.color === 'orange')) { gameOver = true; turnDisplay.innerText = "GG!"; alert("GG! YOU JUICED THE ORANGE!"); }
-            if(!kings.find(k => k.color === 'yellow')) { gameOver = true; alert("GAME OVER. ORANGE RULES THE BASKET."); }
-        }
-
-        initBoard();
+        function exitToMenu() { document.getElementById('home-screen').classList.remove('hidden'); document.getElementById('editor-screen').style.display='none'; mode='edit'; }
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.onresize = resize;
+        function loop() { update(); draw(); requestAnimationFrame(loop); }
+        loop();
     </script>
 </body>
 </html>
